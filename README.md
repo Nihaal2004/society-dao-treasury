@@ -1,57 +1,231 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
+# Society DAO Treasury
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+A decentralized autonomous organization (DAO) treasury management system built with Hardhat 3, OpenZeppelin governance contracts, and a Next.js frontend.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+## 🎯 Overview
 
-## Project Overview
+This project demonstrates a complete DAO governance system featuring:
 
-This example project includes:
+- **Soulbound Membership Tokens (SBT)**: Non-transferable NFTs for membership management
+- **On-Chain Governance**: Proposal creation, voting, and execution using OpenZeppelin Governor
+- **Timelock Treasury**: Secure fund management with timelock protection
+- **Member Dues System**: Payments tracked on-chain
+- **Decentralized Decision Making**: Democratic voting for treasury payouts
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+## 🏗️ Architecture
 
-## Usage
+### Smart Contracts
 
-### Running Tests
+1. **MembershipSBT.sol**
+   - ERC721-based soulbound token (non-transferable)
+   - Implements ERC721Votes for governance participation
+   - Admin-controlled minting and revocation
+   - Dues payment tracking
 
-To run all the tests in the project, execute the following command:
+2. **SocietyGovernor.sol**
+   - OpenZeppelin Governor implementation
+   - 1 member = 1 vote
+   - Configurable voting delay and period
+   - Quorum-based proposal approval
 
-```shell
+3. **Treasury.sol**
+   - Accepts deposits from any address
+   - Timelock-protected payout scheduling
+   - Only executable after timelock expires
+   - Governance-controlled fund distribution
+
+### Frontend
+
+- **Framework**: Next.js 15 with React 19
+- **Wallet Connection**: RainbowKit with Brave Wallet support
+- **Blockchain Interaction**: Viem + Wagmi
+- **Styling**: Tailwind CSS 4
+- **Features**: Real-time status updates, transaction feedback, wallet integration
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js v18 or higher
+- npm
+- Brave Browser (recommended) or any Web3 wallet
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd society-dao-treasury
+
+# Install root dependencies
+npm install
+
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
+```
+
+### Running Locally
+
+1. **Start Local Blockchain**
+```bash
+npx hardhat node
+```
+Keep this terminal running. Copy the private keys for accounts #0, #1, and #2.
+
+2. **Deploy Contracts** (in a new terminal)
+```bash
+npx hardhat run scripts/deploy-local.ts --network localhost
+```
+
+3. **Configure Wallet**
+   - Add Hardhat Local network to your wallet:
+     - Network Name: `Hardhat Local`
+     - RPC URL: `http://127.0.0.1:8545`
+     - Chain ID: `31337`
+     - Currency: `ETH`
+   - Import the three accounts using their private keys
+
+4. **Start Frontend**
+```bash
+cd frontend
+npm run dev
+```
+Open http://localhost:3000
+
+## 📖 Documentation
+
+- **[QUICK_START.md](QUICK_START.md)**: Fast setup and basic usage (5-10 minutes)
+- **[DEMO_GUIDE.md](DEMO_GUIDE.md)**: Comprehensive step-by-step walkthrough with all features
+
+## 🎮 Basic Usage Flow
+
+1. **Mint Memberships** (Admin): Grant membership tokens to participants
+2. **Pay Dues** (Members): Members can pay dues to the membership contract
+3. **Fund Treasury** (Anyone): Deposit ETH to the treasury
+4. **Create Proposal** (Members): Propose a payout from treasury
+5. **Mine a Block**: Required after proposal creation before voting (1-block delay)
+   ```powershell
+   # PowerShell:
+   Invoke-WebRequest -Uri http://127.0.0.1:8545 -Method POST -Body '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' -ContentType "application/json"
+   # Or use the script:
+   npx hardhat run scripts/advance-time.ts --network localhost
+   ```
+6. **Vote** (Members): Vote for or against proposals (share proposal ID with other voters)
+7. **Execute** (Anyone): Queue and execute approved proposals after timelock
+
+## 🔧 Available Scripts
+
+### Blockchain Management
+```bash
+# Mine a single block (needed after proposal creation)
+# PowerShell:
+Invoke-WebRequest -Uri http://127.0.0.1:8545 -Method POST -Body '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' -ContentType "application/json"
+# Linux/Mac:
+curl -X POST --data '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' http://127.0.0.1:8545
+
+# Advance blockchain time/blocks
+npx hardhat run scripts/advance-time.ts --network localhost
+
+# Check current blockchain time
+npx hardhat run scripts/check-time.ts --network localhost
+
+# Execute pending payout (CLI)
+npx hardhat run scripts/exec-payout.ts --network localhost
+
+# Seed a test proposal
+npx hardhat run scripts/seed-propose-local.ts --network localhost
+```
+
+### Testing
+```bash
+# Run tests (when implemented)
 npx hardhat test
 ```
 
-You can also selectively run the Solidity or `node:test` tests:
+## 🛠️ Technology Stack
 
-```shell
-npx hardhat test solidity
-npx hardhat test nodejs
+**Smart Contracts:**
+- Hardhat 3.0.7
+- OpenZeppelin Contracts 5.4.0
+- Solidity (via Hardhat)
+- Viem 2.38.2
+- Ethers.js 6.15.0
+
+**Frontend:**
+- Next.js 15.5.5
+- React 19.1.0
+- RainbowKit 2.2.9
+- Wagmi 2.18.2
+- Viem 2.38.4
+- Tailwind CSS 4
+
+## 📁 Project Structure
+
+```
+society-dao-treasury/
+├── contracts/              # Smart contracts
+│   ├── MembershipSBT.sol
+│   ├── SocietyGovernor.sol
+│   └── Treasury.sol
+├── scripts/               # Deployment and utility scripts
+│   ├── deploy-local.ts
+│   ├── advance-time.ts
+│   └── ...
+├── frontend/             # Next.js application
+│   ├── src/
+│   │   ├── app/         # Next.js app router pages
+│   │   └── contracts.json  # Generated contract ABIs
+│   └── package.json
+├── hardhat.config.ts    # Hardhat configuration
+├── package.json
+├── README.md           # This file
+├── QUICK_START.md     # Quick setup guide
+└── DEMO_GUIDE.md      # Detailed walkthrough
 ```
 
-### Make a deployment to Sepolia
+## 🔐 Security Notes
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
+⚠️ **This is a development/demo project**
 
-To run the deployment to a local chain:
+- Private keys are displayed in the terminal (never use in production)
+- Local blockchain data is ephemeral
+- Simplified governance parameters for testing
+- No production security audits
 
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
-```
+**For production deployment:**
+- Use hardware wallets or secure key management
+- Increase voting delays and periods
+- Set appropriate quorum thresholds
+- Add multi-signature for admin functions
+- Conduct professional security audits
+- Deploy to secure testnet/mainnet with proper configuration
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+## 🤝 Contributing
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+This is a demonstration project. Feel free to fork and modify for your own use cases.
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+## 📄 License
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
+ISC
 
-After setting the variable, you can run the deployment with the Sepolia network:
+## 🆘 Support
 
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+For issues and questions:
+1. Check the [DEMO_GUIDE.md](DEMO_GUIDE.md) troubleshooting section
+2. Review console logs (browser and terminal)
+3. Verify Hardhat node is running
+4. Ensure correct network connection in wallet
+
+## 🎓 Learning Resources
+
+- [OpenZeppelin Governor](https://docs.openzeppelin.com/contracts/governance)
+- [Hardhat Documentation](https://hardhat.org/docs)
+- [Viem Documentation](https://viem.sh)
+- [RainbowKit Documentation](https://www.rainbowkit.com/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+
+---
+
+**Built with Hardhat 3 + OpenZeppelin + Next.js 15**

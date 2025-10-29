@@ -5,15 +5,17 @@ import { encodeFunctionData, parseAbi, stringToHex, keccak256 } from "viem";
 
 describe("M1-M2 demo", () => {
   it("SBT non-transfer, dues, timelocked payout", async () => {
-    const [admin, m1, m2, m3, recipient] = await hre.viem.getWalletClients();
+    const conn = await hre.network.connect();
+    const { viem, provider } = conn;
+    const [admin, m1, m2, m3, recipient] = await viem.getWalletClients();
 
-    const sbt = await hre.viem.deployContract("MembershipSBT", [admin.account.address]);
-    const gov = await hre.viem.deployContract("SocietyGovernor", [sbt.address]);
-    const treasury = await hre.viem.deployContract("Treasury", [gov.address]);
+    const sbt = await viem.deployContract("MembershipSBT", [admin.account.address]);
+    const gov = await viem.deployContract("SocietyGovernor", [sbt.address]);
+    const treasury = await viem.deployContract("Treasury", [gov.address]);
 
-    const sbtC = await hre.viem.getContractAt("MembershipSBT", sbt.address);
-    const govC = await hre.viem.getContractAt("SocietyGovernor", gov.address);
-    const treC = await hre.viem.getContractAt("Treasury", treasury.address);
+    const sbtC = await viem.getContractAt("MembershipSBT", sbt.address);
+    const govC = await viem.getContractAt("SocietyGovernor", gov.address);
+    const treC = await viem.getContractAt("Treasury", treasury.address);
 
     // Mint 3 SBTs
     await sbtC.write.mint([m1.account.address], { account: admin.account });
@@ -33,8 +35,12 @@ describe("M1-M2 demo", () => {
     // Fund treasury
     await treC.write.deposit(["seed"], { account: admin.account, value: 1000000000000000000n }); // 1 ETH
 
+    // Get current block timestamp and set eta for future
+    const pc = await viem.getPublicClient();
+    const latestBlock = await pc.getBlock();
+    const eta = latestBlock.timestamp + 100n; // 100 seconds in the future
+    
     // Propose schedulePayout
-    const eta = BigInt(Math.floor(Date.now() / 1000) + 5);
     const calldata = encodeFunctionData({
       abi: parseAbi(["function schedulePayout(address to,uint256 amount,uint64 eta,string note)"]),
       functionName: "schedulePayout",
@@ -50,26 +56,26 @@ describe("M1-M2 demo", () => {
     const proposalId = await govC.read.hashProposal([targets, values, calldatas, keccak256(stringToHex(desc))]);
 
     // Advance past voting delay
-    await hre.network.provider.send("evm_mine");
+    await provider.request({ method: "evm_mine", params: [] });
 
     // Vote yes with two members
-    await govC.write.castVote([proposalId, 1n], { account: m1.account });
-    await govC.write.castVote([proposalId, 1n], { account: m2.account });
+    await govC.write.castVote([proposalId, 1], { account: m1.account });
+    await govC.write.castVote([proposalId, 1], { account: m2.account });
 
     // Mine blocks to end voting period
-    for (let i = 0; i < 9; i++) await hre.network.provider.send("evm_mine");
+    for (let i = 0; i < 9; i++) await provider.request({ method: "evm_mine", params: [] });
 
     // Execute proposal (schedules payout)
     await govC.write.execute([targets, values, calldatas, keccak256(stringToHex(desc))], { account: m1.account });
 
     // Too early executePayout should revert
     let early = false;
-    try { await treC.write.executePayout([], { account: m1.account }); } catch { early = true; }
+    try { await treC.write.executePayout({ account: m1.account }); } catch { early = true; }
     assert.equal(early, true);
 
     // After eta it should succeed
-    await hre.network.provider.send("evm_increaseTime", [6]);
-    await hre.network.provider.send("evm_mine");
-    await treC.write.executePayout([], { account: m1.account });
+    await provider.request({ method: "evm_increaseTime", params: [101] });
+    await provider.request({ method: "evm_mine", params: [] });
+    await treC.write.executePayout({ account: m1.account });
   });
 });

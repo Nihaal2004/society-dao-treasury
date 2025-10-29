@@ -44,9 +44,15 @@ contract Treasury is Ownable {
     function executePayout() external {
         require(!op.executed, "done");
         require(block.timestamp >= op.eta, "timelocked");
+        
+        // Cache values and mark as executed BEFORE external call (reentrancy protection)
+        address payable recipient = op.to;
+        uint256 payout = op.amount;
+        string memory note = op.note;
         op.executed = true;
-        (bool ok, ) = op.to.call{value: op.amount}("");
+        
+        (bool ok, ) = recipient.call{value: payout}("");
         require(ok, "transfer failed");
-        emit PayoutExecuted(op.to, op.amount, op.note);
+        emit PayoutExecuted(recipient, payout, note);
     }
 }
