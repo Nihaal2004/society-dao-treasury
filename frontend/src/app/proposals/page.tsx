@@ -10,7 +10,7 @@ export default function ProposalsPage() {
   const [mounted, setMounted] = useState(false);
   const [to, setTo] = useState<string>("");
   const [amount, setAmount] = useState<string>("2");
-  const [timelockSeconds, setTimelockSeconds] = useState<string>("60");
+  const [timelockSeconds, setTimelockSeconds] = useState<string>("180");
   const [desc, setDesc] = useState<string>("Payout for community development work");
   const [proposalId, setProposalId] = useState<`0x${string}` | null>(null);
   const [manualProposalId, setManualProposalId] = useState<string>("");
@@ -87,13 +87,16 @@ export default function ProposalsPage() {
       return;
     }
     const timelock = parseInt(timelockSeconds);
-    if (isNaN(timelock) || timelock < 1) {
-      alert("Please enter a valid timelock period");
+    if (isNaN(timelock) || timelock < 180) {
+      alert("Timelock must be at least 180 seconds to account for voting period");
       return;
     }
 
+    // Calculate ETA with buffer for voting delay (1 block ~12s) + voting period (8 blocks ~96s) = ~108s minimum
+    // Add extra buffer to be safe
     const now = Math.floor(Date.now() / 1000);
-    const eta = BigInt(now + timelock);
+    const votingBuffer = 120; // 2 minutes buffer for voting process
+    const eta = BigInt(now + timelock + votingBuffer);
     const calldata = encodeFunctionData({
       abi: parseAbi(["function schedulePayout(address to,uint256 amount,uint64 eta,string note)"]),
       functionName: "schedulePayout",
@@ -152,21 +155,6 @@ export default function ProposalsPage() {
       abi: abis.SocietyGovernor,
       functionName: "castVote",
       args: [idToUse as `0x${string}`, support],
-    });
-  };
-
-  const queueProposal = async () => {
-    if (savedTargets.length === 0 || !savedDescHash) {
-      alert("Please create a proposal first on this page, or the proposal data is not available");
-      return;
-    }
-
-    writeContract({
-      address: addresses.SocietyGovernor,
-      abi: abis.SocietyGovernor,
-      functionName: "queue",
-      args: [savedTargets, savedValues, savedCalldatas, savedDescHash],
-      gas: 500000n,
     });
   };
 
@@ -239,13 +227,13 @@ export default function ProposalsPage() {
           <span className="text-sm text-gray-400">Timelock (seconds after approval)</span>
           <input
             type="number"
-            min="1"
+            min="180"
             className="mt-1 w-full rounded-xl border border-gray-700 bg-white/5 px-4 py-2 outline-none focus:border-gray-500"
             value={timelockSeconds}
             onChange={(e) => setTimelockSeconds(e.target.value)}
-            placeholder="60"
+            placeholder="180"
           />
-          <p className="text-xs text-gray-500 mt-1">Time delay before payout can be executed</p>
+          <p className="text-xs text-gray-500 mt-1">Time delay before payout can be executed (minimum 180 seconds)</p>
         </label>
 
         <label className="block">
@@ -284,7 +272,7 @@ export default function ProposalsPage() {
             <div className="text-xs text-green-400 mb-1">Proposal State:</div>
             <div className="text-sm font-semibold">{stateName}</div>
             {stateName === "Active" && <div className="text-xs text-yellow-400 mt-1">⏳ Voting in progress (need 8 blocks total)</div>}
-            {stateName === "Succeeded" && <div className="text-xs text-green-400 mt-1">✓ Ready to queue!</div>}
+            {stateName === "Succeeded" && <div className="text-xs text-green-400 mt-1">✓ Ready to execute!</div>}
             {stateName === "Pending" && <div className="text-xs text-yellow-400 mt-1">⏳ Mine 1 block to activate voting</div>}
           </div>
         )}
@@ -330,7 +318,7 @@ export default function ProposalsPage() {
       <div className="rounded-2xl border border-gray-800 p-4 space-y-3">
         <h3 className="font-semibold">Execute Proposal</h3>
         <p className="text-xs text-gray-400">
-          After voting ends and proposal succeeds, execute it directly (no queue needed).
+          After voting ends and proposal succeeds (state = "Succeeded"), execute it directly.
         </p>
         
         <div className="rounded-xl bg-yellow-900/20 border border-yellow-800/50 p-3 mb-3">
@@ -368,7 +356,7 @@ export default function ProposalsPage() {
           <li>Create a proposal (members only)</li>
           <li><strong className="text-yellow-400">Wait 1 block for voting delay - mine a block before voting!</strong></li>
           <li>Members vote (voting period: 8 blocks)</li>
-          <li>If approved, queue and execute the proposal</li>
+          <li>If approved, execute the proposal directly (this calls schedulePayout on Treasury)</li>
           <li>Visit Treasury page to execute payout after timelock expires</li>
         </ol>
         <div className="mt-3 pt-3 border-t border-gray-700">
